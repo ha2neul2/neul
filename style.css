@@ -1,0 +1,208 @@
+/* --- CSS 디자인 (아이보리 톤앤톤 & 미니멀리즘) --- */
+:root {
+    --bg-color: #f7f3ed;
+    --container-bg: #fffaf5;
+    --text-main: #5d5446;
+    --text-sub: #8b7e66;
+    --border-color: #e9e2d0;
+    --accent-color: #d4c4a8;
+    --accent-hover: #c4b395;
+    --danger: #e2a095;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    font-family: 'Noto Sans KR', sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    max-width: 600px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background-color: var(--container-bg);
+    box-shadow: 0 0 20px rgba(139, 126, 102, 0.1);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--container-bg);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+.header h2 { margin: 0; font-size: 1.1rem; font-weight: 500; }
+
+button {
+    background-color: var(--accent-color);
+    color: #fff;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    font-family: inherit;
+    transition: 0.2s;
+}
+button:hover { background-color: var(--accent-hover); }
+
+/* 로그인 화면 */
+.login-box { padding: 40px 30px; text-align: center; margin: auto 0; }
+.login-box h1 { font-size: 3rem; margin-bottom: 10px; font-weight: 700; }
+.login-box p { color: var(--text-sub); margin-bottom: 40px; font-weight: 300; }
+.login-box input {
+    width: 100%; padding: 16px; margin-bottom: 5px;
+    border: 1px solid var(--border-color); border-radius: 8px;
+    background: #fff; font-size: 1rem; font-family: inherit;
+}
+.login-box input:focus { outline: none; border-color: var(--accent-color); }
+
+/* 흔들림 효과 및 에러 스타일 */
+.shake { animation: shake 0.4s ease-in-out; }
+@keyframes shake {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    50% { transform: translateX(5px); }
+    75% { transform: translateX(-5px); }
+    100% { transform: translateX(0); }
+}
+.error-border { border-color: var(--danger) !important; }
+.error-text { color: var(--danger); font-size: 0.85rem; height: 20px; margin-bottom: 15px; text-align: left; }
+
+.login-box button { width: 100%; padding: 16px; font-size: 1.1rem; border-radius: 8px; margin-top: 10px;}
+
+/* 검색창 */
+.search-container { padding: 15px 20px; background: white; border-bottom: 1px solid var(--border-color); position: sticky; top: 71px; z-index: 10;}
+.search-input { width: 100%; padding: 12px 15px; border: 1px solid var(--accent-color); border-radius: 8px; font-size: 1rem; font-family: inherit; outline:none; }
+.search-input:focus { box-shadow: 0 0 0 2px rgba(212, 196, 168, 0.3); }
+
+/* 쇼핑 화면: 카테고리 아코디언 및 상품 목록 */
+.accordion {
+    background-color: #fdf8f2; color: var(--text-main); cursor: pointer;
+    padding: 18px 20px; width: 100%; text-align: left; border: none;
+    outline: none; border-bottom: 1px solid var(--border-color);
+    font-weight: 500; font-size: 1rem; display:flex;
+    justify-content: space-between; align-items: center;
+}
+.accordion::after { content: '▼'; font-size: 0.8rem; color: var(--accent-color); transition: 0.3s; }
+.accordion.active::after { content: '▲'; }
+
+.panel { padding: 0; background-color: white; display: none; }
+
+.product-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 18px 20px; border-bottom: 1px solid #f2ece4;
+}
+.product-row:last-child { border-bottom: none; }
+.p-name { font-weight: 500; margin-bottom: 6px; font-size: 1rem; }
+.p-meta { font-size: 0.85rem; color: var(--text-sub); font-weight: 300;}
+
+.qty-control {
+    display: flex; align-items: center; border: 1px solid var(--border-color);
+    border-radius: 6px; overflow: hidden; background: #fff;
+}
+.qty-control button {
+    background: transparent; color: var(--text-main); padding: 8px 15px;
+    border-radius: 0; font-size: 1.2rem;
+}
+.qty-control button:hover { background: #fdf8f2; }
+.qty-control input {
+    width: 45px; text-align: center; border: none;
+    border-left: 1px solid var(--border-color); border-right: 1px solid var(--border-color);
+    padding: 10px 0; font-family: inherit; font-size: 1rem; font-weight: 500;
+    color: var(--text-main); -moz-appearance: textfield;
+}
+.qty-control input::-webkit-outer-spin-button, .qty-control input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+.sticky-footer {
+    position: sticky; bottom: 0; background: var(--container-bg);
+    border-top: 1px solid var(--border-color); padding: 20px;
+    display: flex; justify-content: space-between; align-items: center;
+    box-shadow: 0 -10px 20px rgba(139, 126, 102, 0.05); margin-top: auto; z-index: 20;
+}
+.total-price { font-size: 1rem; color: var(--text-sub); }
+.total-price span { color: var(--text-main); font-size: 1.4rem; font-weight: 700; display: block; margin-top: 5px;}
+.btn-confirm { padding: 15px 30px; font-size: 1.1rem; border-radius: 30px; }
+
+/* 장바구니 모달 팝업 */
+.modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5); z-index: 100;
+    display: flex; justify-content: center; align-items: flex-end;
+}
+.modal-content {
+    background: #fff; width: 100%; max-width: 600px; max-height: 85vh;
+    border-radius: 20px 20px 0 0; display: flex; flex-direction: column;
+    animation: slideUp 0.3s ease-out; box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+}
+.modal-header {
+    padding: 20px; border-bottom: 1px solid var(--border-color);
+    display: flex; justify-content: space-between; align-items: center;
+}
+.modal-body {
+    padding: 20px; overflow-y: auto; flex-grow: 1; background: #f9fbf7;
+}
+.close-btn { background: transparent; color: var(--text-main); font-size: 1.5rem; padding: 0; margin: 0; font-weight:300;}
+.close-btn:hover { background: transparent; color: var(--danger); }
+
+.cart-item { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #e2e8db; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02);}
+.btn-delete-item { background-color: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight:700; margin-left: 8px;}
+.btn-delete-item:hover { background-color: var(--danger); color: white;}
+
+@keyframes slideUp { from {transform: translateY(100%);} to {transform: translateY(0);} }
+
+/* 관리자 화면 */
+.tabs { display: flex; border-bottom: 1px solid var(--border-color); background: #fdf8f2; }
+.tabs button { flex: 1; border-radius: 0; background: transparent; color: var(--text-sub); border-bottom: 3px solid transparent; padding: 15px 0;}
+.tabs button.active { color: var(--text-main); border-bottom: 3px solid var(--accent-color); font-weight: 700; }
+
+.admin-content { padding: 20px; flex-grow:1; overflow-y:auto; }
+.add-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 30px; padding: 20px; background: #fdf8f2; border-radius: 8px; border: 1px solid var(--border-color); }
+.add-form input { padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit;}
+
+.section-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 12px; margin-bottom: 15px; margin-top: 30px;}
+.section-header h3 { margin: 0; font-weight: 500; }
+.header-actions { display: flex; gap: 8px; }
+
+.btn-danger { background-color: var(--danger); }
+.btn-danger:hover { background-color: #d18f84; }
+.btn-outline { background-color: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
+.btn-outline:hover { background-color: #f2ece4; }
+
+.admin-list { list-style: none; padding: 0; margin: 0; }
+.admin-list li { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #f2ece4; }
+.item-info { display: flex; align-items: center; gap: 10px; }
+.checkbox-custom { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent-color); }
+
+.order-card { background: #fff; border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; margin-bottom: 15px; }
+.order-card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--border-color); padding-bottom: 15px; margin-bottom: 15px; }
+.order-card-header h4 { margin: 0; font-weight: 500; }
+.order-card ul { margin: 0; padding-left: 0; list-style: none; color: var(--text-sub); }
+.order-card li { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.95rem; }
+.u-total { text-align: right; font-weight: 700; margin-top: 15px; color: var(--text-main); font-size: 1.1rem;}
+
+.file-upload-box { background: white; padding: 15px; border: 1px dashed var(--accent-color); border-radius: 6px; margin-top: 10px; text-align: center; }
+.file-upload-box input[type="file"] { display: none; }
+.file-upload-box label { cursor: pointer; color: var(--accent-color); font-weight: 700; text-decoration: underline; }
+
+/* 토스트 알림창 */
+.toast {
+    visibility: hidden; min-width: 280px; background-color: var(--text-main); color: #fff;
+    text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 200;
+    left: 50%; transform: translateX(-50%); bottom: 30px; font-size: 15px; font-weight: 500;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+.toast.show { visibility: visible; animation: fadein 0.3s, fadeout 0.3s 2.7s; }
+@keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+@keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
