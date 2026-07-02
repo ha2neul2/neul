@@ -240,40 +240,35 @@
         let openCategories = null; 
         let searchQuery = ''; 
 
-        // [핵심] 주문 확정 및 구글 시트 연동 (수정됨)
-        async function confirmOrder() {
-            const user = users.find(u => u.nickname === currentUser);
-            if (!user) return;
+      // [수정] 1. confirmOrder 함수 수정
+async function confirmOrder() {
+    const user = users.find(u => u.nickname === currentUser);
+    if (!user) return;
 
-            // 1. 구글 시트로 보낼 데이터 준비
-            const cartDetails = JSON.stringify(user.cart);
-            const totalPrice = document.getElementById('total-price-display').innerText;
+    showToast("서버에 전송 중...");
 
-            showToast("데이터 전송 중...");
+    try {
+        // [주의] 아래 링크를 본인의 것으로 정확히 넣으세요
+        const url = 'https://script.google.com/macros/s/AKfycbw__CG4t2buOMZwG8my8i7HMJodv8Mz4lDn72B-fNfoHQa6-kE75Y4za60-aCZAxCCC/exec';
+        
+        await fetch(url, {
+            method: 'POST',
+            mode: 'no-cors', // 구글 스크립트는 이게 필요함
+            body: JSON.stringify({
+                action: 'confirmOrder',
+                nickname: currentUser,
+                cartDetails: JSON.stringify(user.cart)
+            })
+        });
 
-            try {
-                // 구글 앱스 스크립트 URL (기존 주소)
-                await fetch('https://script.google.com/macros/s/AKfycby13lV6K_PM0QhGbLZ3D544lydAehzW_UkCVBrsr3T6TyAnOAG08Y0DhO2yttn_IR3-/exec', {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        nickname: currentUser,
-                        cartDetails: cartDetails,
-                        totalPrice: totalPrice
-                    })
-                });
-
-                // 성공 시 기존 기능 유지
-                user.confirmed = true;
-                saveDB();
-                updateFooterAndCartCount();
-                showToast("주문이 성공적으로 서버에 접수되었습니다!");
-            } catch (error) {
-                console.error("전송 실패:", error);
-                showToast("전송 실패. 다시 시도해주세요.");
-            }
-        }
+        user.confirmed = true;
+        saveDB();
+        updateFooterAndCartCount();
+        showToast("주문이 서버에 저장되었습니다!");
+    } catch (error) {
+        showToast("전송 실패: " + error.message);
+    }
+}
 
         // --- 기타 모든 함수들 (사용자님의 코드 그대로 유지) ---
         function saveDB() {
