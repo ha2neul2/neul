@@ -365,12 +365,21 @@ async function confirmOrder() {
     updateFooterAndCartCount();
     showToast("저장 중...");
 
+    // [속도 개선] 예전에는 saveUser 1번 + 담은 상품 개수만큼 addOrder를 동시에 호출했습니다.
+    // 장바구니에 담은 상품이 많을수록 서버 왕복이 늘어나(N+1) 느려지던 부분을,
+    // 서버에 요청 1번으로 사용자 저장 + 주문 내역 일괄 기록까지 한 번에 처리하도록 합쳤습니다.
+    const items = products
+        .filter(p => (user.cart[p.id] || 0) > 0)
+        .map(p => ({ productName: p.name, qty: user.cart[p.id], price: p.price }));
+
     try {
-        await apiPost('saveUser', user);
-        const items = products.filter(p => (user.cart[p.id] || 0) > 0);
-        await Promise.all(items.map(p => apiPost('addOrder', {
-            nickname: user.nickname, productName: p.name, qty: user.cart[p.id], price: p.price
-        })));
+        await apiPost('confirmOrder', {
+            nickname: user.nickname,
+            password: user.password,
+            cart: user.cart,
+            confirmed: true,
+            items
+        });
         showToast("장바구니 내역이 성공적으로 저장(확정) 되었습니다.");
     } catch (err) {
         showToast("저장에 실패했습니다. 네트워크를 확인해주세요.");
@@ -672,8 +681,10 @@ function handleCSVUpload(event) {
 
         showToast(`${parsedProducts.length}개 상품 업로드 중...`);
         try {
-            await apiPost('addProductsBulk', { products: parsedProducts });
-            products = await apiGet('getProducts'); // 서버 기준으로 다시 동기화
+            // [속도 개선] 예전에는 저장 후 상품 목록을 처음부터 다시 조회했습니다.
+            // 이제는 서버가 새로 생성된 상품(id 포함)을 바로 응답해주므로 재조회가 필요 없습니다.
+            const res = await apiPost('addProductsBulk', { products: parsedProducts });
+            products.push(...(res.products || []));
             renderAdmin();
             showToast(`${parsedProducts.length}개의 상품이 성공적으로 일괄 등록되었습니다.`);
         } catch (err) {

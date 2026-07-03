@@ -1,10 +1,16 @@
 // 건의게시판 (제품 추가 요청) 기능
 // script.js에서 정의한 API_URL, apiGet, apiPost, currentUser, showToast를 그대로 사용합니다.
+//
+// [속도 개선 버전]
+// - 글/댓글 작성 시 서버 응답을 기다리며 전체 목록을 재조회하지 않고,
+//   화면에 먼저 반영(낙관적 업데이트)한 뒤 서버가 돌려준 id/시간으로 조용히 교체합니다.
+// - 이미지 첨부 시 업로드 전에 리사이즈/압축해서 전송량을 줄입니다.
 
 let boardPosts = [];
 let boardComments = [];
 let boardSearchQuery = '';
 let boardReturnScreen = 'shop'; // 게시판에서 뒤로가기 시 돌아갈 화면 ('shop' | 'admin')
+let openReplyForms = new Set(); // 다시 그려도 열려있는 상태를 유지하기 위한 답글 입력창 id 목록
 
 function renderAuthorName(author) {
     if (author === 'admin') return `<span class="admin-badge">👑 관리자</span>`;
@@ -67,7 +73,7 @@ function renderBoardList() {
         html += `<ul class="admin-list">`;
         filtered.forEach(p => {
             html += `
-                <li onclick="openPostDetail(${p.id})" style="cursor:pointer;">
+                <li onclick="openPostDetail(${JSON.stringify(p.id)})" style="cursor:pointer;">
                     <div>
                         <strong style="display:block; margin-bottom:5px;">${escapeHtml(p.title)} ${p.edited ? '<span style="color:var(--text-sub); font-size:0.8rem; font-weight:400;">(수정됨)</span>' : ''}</strong>
                         <span style="font-size:0.85rem; color:var(--text-sub);">${renderAuthorName(p.author)} · ${formatDateTime(p.created_at)}</span>
@@ -95,7 +101,7 @@ function renderPostEditor(existingPost) {
     app.innerHTML = `
         <div class="header">
             <h2>${isEdit ? '✏️ 글 수정' : '✏️ 새 글 작성'}</h2>
-            <button onclick="${isEdit ? `openPostDetail(${existingPost.id})` : `renderBoardList()`}" style="padding: 6px 12px; font-size: 0.85rem; background:transparent; color:var(--text-sub); border: 1px solid var(--border-color);">취소</button>
+            <button onclick="${isEdit ? `openPostDetail(${JSON.stringify(existingPost.id)})` : `renderBoardList()`}" style="padding: 6px 12px; font-size: 0.85rem; background:transparent; color:var(--text-sub); border: 1px solid var(--border-color);">취소</button>
         </div>
         <div class="admin-content">
             <div class="add-form">
@@ -116,7 +122,7 @@ function renderPostEditor(existingPost) {
                 </div>
                 <div id="rte-body" class="rte-body" contenteditable="true">${isEdit ? existingPost.body : ''}</div>
 
-                <button onclick="saveBoardPost(${isEdit ? existingPost.id : 'null'})">${isEdit ? '수정 완료' : '등록하기'}</button>
+                <button id="post-save-btn" onclick="saveBoardPost(${isEdit ? JSON.stringify(existingPost.id) : 'null'})">${isEdit ? '수정 완료' : '등록하기'}</button>
             </div>
         </div>
     `;
@@ -127,30 +133,57 @@ function rteCmd(cmd, val) {
     document.execCommand(cmd, false, val || null);
 }
 
+// 이미지를 최대 가로 1280px, JPEG 품질 0.82로 리사이즈/압축해서 base64로 반환
+// (휴대폰 원본 사진 3~5MB → 보통 수백 KB로 줄어들어 업로드 속도가 크게 개선됩니다)
+function resizeImageToBase64(file, maxWidth = 1280, quality = 0.82) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+                if (width > maxWidth) {
+                    height = Math.round(height * (maxWidth / width));
+                    width = maxWidth;
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                resolve({ base64: dataUrl.split(',')[1], mimeType: 'image/jpeg' });
+            };
+            img.onerror = () => reject(new Error('이미지를 읽을 수 없습니다.'));
+            img.src = e.target.result;
+        };
+        reader.onerror = () => reject(new Error('파일을 읽을 수 없습니다.'));
+        reader.readAsDataURL(file);
+    });
+}
+
 async function handleBoardImageUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    if (file.size > 4 * 1024 * 1024) {
-        showToast("이미지 용량은 4MB 이하로 첨부해주세요.");
+    if (file.size > 12 * 1024 * 1024) {
+        showToast("이미지 용량은 12MB 이하로 첨부해주세요.");
         event.target.value = '';
         return;
     }
 
-    const reader = new FileReader();
-    reader.onload = async function (e) {
-        const base64 = e.target.result.split(',')[1];
+    showToast("이미지 처리 중...");
+    try {
+        const { base64, mimeType } = await resizeImageToBase64(file);
         showToast("이미지 업로드 중...");
-        try {
-            const res = await apiPost('uploadImage', { base64, mimeType: file.type, filename: file.name });
-            document.getElementById('rte-body').focus();
-            document.execCommand('insertImage', false, res.url);
-        } catch (err) {
-            showToast("이미지 업로드에 실패했습니다.");
-        }
-        event.target.value = '';
-    };
-    reader.readAsDataURL(file);
+        const res = await apiPost('uploadImage', { base64, mimeType, filename: file.name });
+        document.getElementById('rte-body').focus();
+        document.execCommand('insertImage', false, res.url);
+    } catch (err) {
+        showToast("이미지 업로드에 실패했습니다.");
+    }
+    event.target.value = '';
 }
 
 async function saveBoardPost(existingId) {
@@ -160,20 +193,57 @@ async function saveBoardPost(existingId) {
     if (!title) return showToast("제목을 입력해주세요.");
     if (!body) return showToast("내용을 입력해주세요.");
 
-    showToast("저장 중...");
-    try {
-        if (existingId) {
-            const res = await apiPost('updatePost', { id: existingId, title, body, author: currentUser });
-            if (!res.success) { showToast(res.error || "수정에 실패했습니다."); return; }
-        } else {
-            await apiPost('addPost', { title, body, author: currentUser });
+    const btn = document.getElementById('post-save-btn');
+    if (btn) btn.disabled = true;
+
+    if (existingId) {
+        // ---- 수정: 낙관적 업데이트 ----
+        const idx = boardPosts.findIndex(p => String(p.id) === String(existingId));
+        const prevPost = idx !== -1 ? { ...boardPosts[idx] } : null;
+        if (idx !== -1) {
+            boardPosts[idx] = { ...boardPosts[idx], title, body, edited: true };
         }
-        boardPosts = await apiGet('getPosts');
-        boardPosts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        showToast(existingId ? "수정이 완료되었습니다." : "글이 등록되었습니다.");
+        renderPostDetail(existingId);
+        showToast("저장 중...");
+        try {
+            const res = await apiPost('updatePost', { id: existingId, title, body, author: currentUser });
+            if (!res.success) {
+                if (prevPost && idx !== -1) boardPosts[idx] = prevPost;
+                showToast(res.error || "수정에 실패했습니다.");
+                renderPostDetail(existingId);
+                return;
+            }
+            showToast("수정이 완료되었습니다.");
+        } catch (err) {
+            if (prevPost && idx !== -1) boardPosts[idx] = prevPost;
+            showToast("저장에 실패했습니다. 네트워크를 확인해주세요.");
+            renderPostDetail(existingId);
+        }
+    } else {
+        // ---- 새 글: 임시 id로 즉시 화면에 반영 ----
+        const tempId = 'temp-' + Date.now();
+        const newPost = { id: tempId, title, body, author: currentUser, created_at: new Date().toISOString(), edited: false };
+        boardPosts.unshift(newPost);
         renderBoardList();
-    } catch (err) {
-        showToast("저장에 실패했습니다. 네트워크를 확인해주세요.");
+        showToast("등록 중...");
+        try {
+            const res = await apiPost('addPost', { title, body, author: currentUser });
+            const i = boardPosts.findIndex(p => p.id === tempId);
+            if (i !== -1) {
+                boardPosts[i] = {
+                    id: res.id,
+                    title, body, author: currentUser,
+                    created_at: res.created_at || newPost.created_at,
+                    edited: false
+                };
+            }
+            showToast("글이 등록되었습니다.");
+            renderBoardList();
+        } catch (err) {
+            boardPosts = boardPosts.filter(p => p.id !== tempId);
+            showToast("등록에 실패했습니다. 네트워크를 확인해주세요.");
+            renderBoardList();
+        }
     }
 }
 
@@ -181,6 +251,7 @@ async function saveBoardPost(existingId) {
 
 async function openPostDetail(postId) {
     document.getElementById('app').innerHTML = `<div style="padding:60px 20px; text-align:center; color:var(--text-sub);">불러오는 중...</div>`;
+    openReplyForms = new Set();
     try {
         boardComments = await apiGet(`getComments&postId=${postId}`);
     } catch (err) {
@@ -190,7 +261,7 @@ async function openPostDetail(postId) {
 }
 
 function renderPostDetail(postId) {
-    const post = boardPosts.find(p => p.id === postId);
+    const post = boardPosts.find(p => String(p.id) === String(postId));
     if (!post) { renderBoardList(); return; }
 
     const app = document.getElementById('app');
@@ -227,7 +298,7 @@ function renderPostDetail(postId) {
                     </div>
                     <div style="display:flex; gap:6px; flex-shrink:0;">
                         ${isAuthor ? `<button class="btn-outline" onclick="renderPostEditor(${JSON.stringify(post).replace(/"/g, '&quot;')})">수정</button>` : ''}
-                        ${canManagePost ? `<button class="btn-danger" onclick="deletePostConfirm(${post.id})">삭제</button>` : ''}
+                        ${canManagePost ? `<button class="btn-danger" onclick="deletePostConfirm(${JSON.stringify(post.id)})">삭제</button>` : ''}
                     </div>
                 </div>
                 <div class="rte-view">${post.body}</div>
@@ -239,7 +310,7 @@ function renderPostDetail(postId) {
 
             <div class="comment-form">
                 <textarea id="comment-input-root" placeholder="댓글을 입력하세요" rows="2"></textarea>
-                <button onclick="submitComment(${postId}, null, 'comment-input-root')">댓글 등록</button>
+                <button onclick="submitComment(${JSON.stringify(postId)}, null, 'comment-input-root')">댓글 등록</button>
             </div>
 
             <div id="comment-list">${commentsHtml}</div>
@@ -250,6 +321,7 @@ function renderPostDetail(postId) {
 function renderCommentBlock(c, postId, isReply) {
     const inputId = `reply-input-${c.id}`;
     const canManageComment = c.author === currentUser || currentUser === 'admin';
+    const isOpen = openReplyForms.has(c.id);
     return `
         <div class="comment-block ${isReply ? 'is-reply' : ''}">
             <div class="comment-meta">
@@ -258,18 +330,20 @@ function renderCommentBlock(c, postId, isReply) {
             </div>
             <div class="comment-body">${escapeHtml(c.body)}</div>
             <div style="display:flex; gap:12px; margin-top:4px;">
-                ${!isReply ? `<button class="btn-reply" onclick="toggleReplyForm(${c.id})">답글</button>` : ''}
-                ${canManageComment ? `<button class="btn-reply" style="color:var(--danger);" onclick="deleteCommentConfirm(${postId}, ${c.id})">삭제</button>` : ''}
+                ${!isReply ? `<button class="btn-reply" onclick="toggleReplyForm(${JSON.stringify(c.id)})">답글</button>` : ''}
+                ${canManageComment ? `<button class="btn-reply" style="color:var(--danger);" onclick="deleteCommentConfirm(${JSON.stringify(postId)}, ${JSON.stringify(c.id)})">삭제</button>` : ''}
             </div>
-            <div id="reply-form-${c.id}" class="comment-form" style="display:none; margin-top:8px;">
+            <div id="reply-form-${c.id}" class="comment-form" style="${isOpen ? '' : 'display:none;'} margin-top:8px;">
                 <textarea id="${inputId}" placeholder="답글을 입력하세요" rows="2"></textarea>
-                <button onclick="submitComment(${postId}, ${c.id}, '${inputId}')">답글 등록</button>
+                <button onclick="submitComment(${JSON.stringify(postId)}, ${JSON.stringify(c.id)}, '${inputId}')">답글 등록</button>
             </div>
         </div>
     `;
 }
 
 function toggleReplyForm(commentId) {
+    if (openReplyForms.has(commentId)) openReplyForms.delete(commentId);
+    else openReplyForms.add(commentId);
     const el = document.getElementById(`reply-form-${commentId}`);
     if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
@@ -279,12 +353,31 @@ async function submitComment(postId, parentId, textareaId) {
     const body = textarea.value.trim();
     if (!body) return showToast("댓글 내용을 입력해주세요.");
 
+    // ---- 낙관적 업데이트: 임시 id로 즉시 화면에 반영 ----
+    const tempId = 'temp-' + Date.now();
+    const newComment = {
+        id: tempId, post_id: postId, parent_id: parentId || '',
+        author: currentUser, body, created_at: new Date().toISOString()
+    };
+    boardComments.push(newComment);
+    if (parentId) openReplyForms.add(parentId);
+    renderPostDetail(postId);
+
     try {
-        await apiPost('addComment', { postId, parentId: parentId || '', author: currentUser, body });
-        boardComments = await apiGet(`getComments&postId=${postId}`);
+        const res = await apiPost('addComment', { postId, parentId: parentId || '', author: currentUser, body });
+        const i = boardComments.findIndex(c => c.id === tempId);
+        if (i !== -1) {
+            boardComments[i] = {
+                id: res.id, post_id: postId, parent_id: parentId || '',
+                author: currentUser, body,
+                created_at: res.created_at || newComment.created_at
+            };
+        }
         renderPostDetail(postId);
     } catch (err) {
+        boardComments = boardComments.filter(c => c.id !== tempId);
         showToast("댓글 등록에 실패했습니다.");
+        renderPostDetail(postId);
     }
 }
 
@@ -293,7 +386,7 @@ async function deletePostConfirm(postId) {
     try {
         const res = await apiPost('deletePost', { id: postId, requester: currentUser });
         if (!res.success) return showToast(res.error || "삭제에 실패했습니다.");
-        boardPosts = boardPosts.filter(p => p.id !== postId);
+        boardPosts = boardPosts.filter(p => String(p.id) !== String(postId));
         showToast("삭제되었습니다.");
         renderBoardList();
     } catch (err) {
@@ -306,7 +399,9 @@ async function deleteCommentConfirm(postId, commentId) {
     try {
         const res = await apiPost('deleteComment', { id: commentId, requester: currentUser });
         if (!res.success) return showToast(res.error || "삭제에 실패했습니다.");
-        boardComments = await apiGet(`getComments&postId=${postId}`);
+        boardComments = boardComments.filter(c =>
+            String(c.id) !== String(commentId) && String(c.parent_id) !== String(commentId)
+        );
         showToast("삭제되었습니다.");
         renderPostDetail(postId);
     } catch (err) {
