@@ -254,3 +254,11 @@ button:hover { background-color: var(--accent-hover); }
     font-size: 0.8rem; text-decoration: underline; margin-top: 4px;
 }
 .btn-reply:hover { background: transparent; color: var(--accent-hover); }
+
+/* 관리자 강조 뱃지 */
+.admin-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    background: linear-gradient(135deg, #f0d98c, #d4af37);
+    color: #5a4a1a; font-weight: 700; padding: 2px 9px;
+    border-radius: 20px; font-size: 0.8rem;
+}

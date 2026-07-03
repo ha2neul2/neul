@@ -6,6 +6,11 @@ let boardComments = [];
 let boardSearchQuery = '';
 let boardReturnScreen = 'shop'; // 게시판에서 뒤로가기 시 돌아갈 화면 ('shop' | 'admin')
 
+function renderAuthorName(author) {
+    if (author === 'admin') return `<span class="admin-badge">👑 관리자</span>`;
+    return escapeHtml(author);
+}
+
 function formatDateTime(value) {
     const d = new Date(value);
     if (isNaN(d.getTime())) return '';
@@ -65,7 +70,7 @@ function renderBoardList() {
                 <li onclick="openPostDetail(${p.id})" style="cursor:pointer;">
                     <div>
                         <strong style="display:block; margin-bottom:5px;">${escapeHtml(p.title)} ${p.edited ? '<span style="color:var(--text-sub); font-size:0.8rem; font-weight:400;">(수정됨)</span>' : ''}</strong>
-                        <span style="font-size:0.85rem; color:var(--text-sub);">${escapeHtml(p.author)} · ${formatDateTime(p.created_at)}</span>
+                        <span style="font-size:0.85rem; color:var(--text-sub);">${renderAuthorName(p.author)} · ${formatDateTime(p.created_at)}</span>
                     </div>
                 </li>`;
         });
@@ -190,6 +195,8 @@ function renderPostDetail(postId) {
 
     const app = document.getElementById('app');
     const isAuthor = post.author === currentUser;
+    const isAdmin = currentUser === 'admin';
+    const canManagePost = isAuthor || isAdmin;
 
     const topComments = boardComments.filter(c => !c.parent_id);
     const repliesOf = pid => boardComments.filter(c => String(c.parent_id) === String(pid));
@@ -216,9 +223,12 @@ function renderPostDetail(postId) {
                 <div class="order-card-header" style="align-items:flex-start;">
                     <div>
                         <h4 style="margin-bottom:6px;">${escapeHtml(post.title)} ${post.edited ? '<span style="color:var(--text-sub); font-size:0.8rem; font-weight:400;">(수정됨)</span>' : ''}</h4>
-                        <span style="font-size:0.85rem; color:var(--text-sub);">${escapeHtml(post.author)} · ${formatDateTime(post.created_at)}</span>
+                        <span style="font-size:0.85rem; color:var(--text-sub);">${renderAuthorName(post.author)} · ${formatDateTime(post.created_at)}</span>
                     </div>
-                    ${isAuthor ? `<button class="btn-outline" onclick="renderPostEditor(${JSON.stringify(post).replace(/"/g, '&quot;')})">수정</button>` : ''}
+                    <div style="display:flex; gap:6px; flex-shrink:0;">
+                        ${isAuthor ? `<button class="btn-outline" onclick="renderPostEditor(${JSON.stringify(post).replace(/"/g, '&quot;')})">수정</button>` : ''}
+                        ${canManagePost ? `<button class="btn-danger" onclick="deletePostConfirm(${post.id})">삭제</button>` : ''}
+                    </div>
                 </div>
                 <div class="rte-view">${post.body}</div>
             </div>
@@ -239,14 +249,18 @@ function renderPostDetail(postId) {
 
 function renderCommentBlock(c, postId, isReply) {
     const inputId = `reply-input-${c.id}`;
+    const canManageComment = c.author === currentUser || currentUser === 'admin';
     return `
         <div class="comment-block ${isReply ? 'is-reply' : ''}">
             <div class="comment-meta">
-                <strong>${escapeHtml(c.author)}</strong>
+                <strong>${renderAuthorName(c.author)}</strong>
                 <span class="p-meta">${formatDateTime(c.created_at)}</span>
             </div>
             <div class="comment-body">${escapeHtml(c.body)}</div>
-            ${!isReply ? `<button class="btn-reply" onclick="toggleReplyForm(${c.id})">답글</button>` : ''}
+            <div style="display:flex; gap:12px; margin-top:4px;">
+                ${!isReply ? `<button class="btn-reply" onclick="toggleReplyForm(${c.id})">답글</button>` : ''}
+                ${canManageComment ? `<button class="btn-reply" style="color:var(--danger);" onclick="deleteCommentConfirm(${postId}, ${c.id})">삭제</button>` : ''}
+            </div>
             <div id="reply-form-${c.id}" class="comment-form" style="display:none; margin-top:8px;">
                 <textarea id="${inputId}" placeholder="답글을 입력하세요" rows="2"></textarea>
                 <button onclick="submitComment(${postId}, ${c.id}, '${inputId}')">답글 등록</button>
@@ -271,6 +285,32 @@ async function submitComment(postId, parentId, textareaId) {
         renderPostDetail(postId);
     } catch (err) {
         showToast("댓글 등록에 실패했습니다.");
+    }
+}
+
+async function deletePostConfirm(postId) {
+    if (!confirm("이 글을 삭제하시겠습니까? 딸린 댓글도 함께 삭제됩니다.")) return;
+    try {
+        const res = await apiPost('deletePost', { id: postId, requester: currentUser });
+        if (!res.success) return showToast(res.error || "삭제에 실패했습니다.");
+        boardPosts = boardPosts.filter(p => p.id !== postId);
+        showToast("삭제되었습니다.");
+        renderBoardList();
+    } catch (err) {
+        showToast("삭제에 실패했습니다. 네트워크를 확인해주세요.");
+    }
+}
+
+async function deleteCommentConfirm(postId, commentId) {
+    if (!confirm("이 댓글을 삭제하시겠습니까? 달린 답글도 함께 삭제됩니다.")) return;
+    try {
+        const res = await apiPost('deleteComment', { id: commentId, requester: currentUser });
+        if (!res.success) return showToast(res.error || "삭제에 실패했습니다.");
+        boardComments = await apiGet(`getComments&postId=${postId}`);
+        showToast("삭제되었습니다.");
+        renderPostDetail(postId);
+    } catch (err) {
+        showToast("삭제에 실패했습니다. 네트워크를 확인해주세요.");
     }
 }
 
