@@ -140,6 +140,7 @@ function renderShop() {
                 <div class="header">
                     <h2>안녕하세요, <strong>${currentUser}</strong>님</h2>
                     <div style="display:flex; gap:8px;">
+                        <button onclick="openBoard('shop')" style="padding: 6px 12px; font-size: 0.85rem; background:transparent; color:var(--text-sub); border: 1px solid var(--border-color);">💡 건의게시판</button>
                         <button onclick="openCart()" style="padding: 6px 12px; font-size: 0.85rem; background:var(--accent-color); color:#fff; border: none; font-weight:700;">🛒 장바구니 <span id="cart-count">0</span></button>
                         <button onclick="logout()" style="padding: 6px 12px; font-size: 0.85rem; background:transparent; color:var(--text-sub); border: 1px solid var(--border-color);">로그아웃</button>
                     </div>
@@ -384,7 +385,10 @@ function renderAdmin() {
     let html = `
         <div class="header">
             <h2>관리자 마스터 패널</h2>
-            <button onclick="logout()" style="padding: 6px 12px; font-size: 0.85rem;">종료</button>
+            <div style="display:flex; gap:8px;">
+                <button onclick="openBoard('admin')" style="padding: 6px 12px; font-size: 0.85rem; background:transparent; color:var(--text-sub); border: 1px solid var(--border-color);">💡 건의게시판</button>
+                <button onclick="logout()" style="padding: 6px 12px; font-size: 0.85rem;">종료</button>
+            </div>
         </div>
         <div class="tabs">
             <button class="${adminTab==='products'?'active':''}" onclick="changeAdminTab('products')">상품 관리</button>

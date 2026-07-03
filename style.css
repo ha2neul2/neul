@@ -206,3 +206,51 @@ button:hover { background-color: var(--accent-hover); }
 .toast.show { visibility: visible; animation: fadein 0.3s, fadeout 0.3s 2.7s; }
 @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
 @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+
+/* --- 건의게시판 --- */
+.rte-toolbar {
+    display: flex; align-items: center; gap: 6px; padding: 8px;
+    background: #fff; border: 1px solid var(--border-color); border-radius: 6px 6px 0 0;
+    border-bottom: none;
+}
+.rte-toolbar button {
+    background: #fdf8f2; color: var(--text-main); border: 1px solid var(--border-color);
+    padding: 6px 10px; font-size: 0.9rem; border-radius: 4px;
+}
+.rte-toolbar button:hover { background: #f2ece4; }
+.rte-color-label, .rte-image-label {
+    display: inline-flex; align-items: center; gap: 4px; cursor: pointer;
+    background: #fdf8f2; border: 1px solid var(--border-color); border-radius: 4px;
+    padding: 6px 10px; font-size: 0.85rem; color: var(--text-main);
+}
+.rte-color-label input[type="color"] { width: 18px; height: 18px; padding: 0; border: none; cursor: pointer; }
+.rte-image-label input[type="file"] { display: none; }
+
+.rte-body {
+    min-height: 200px; background: #fff; border: 1px solid var(--border-color);
+    border-radius: 0 0 6px 6px; padding: 15px; font-size: 0.95rem; line-height: 1.6;
+    overflow-y: auto;
+}
+.rte-body:focus { outline: none; box-shadow: 0 0 0 2px rgba(212, 196, 168, 0.3); }
+.rte-body img, .rte-view img { max-width: 100%; border-radius: 6px; margin: 8px 0; display: block; }
+
+.rte-view { padding: 15px 0 5px 0; font-size: 0.95rem; line-height: 1.7; word-break: break-word; }
+
+.comment-form { display: flex; gap: 8px; margin: 15px 0; align-items: flex-start; }
+.comment-form textarea {
+    flex: 1; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;
+    font-family: inherit; font-size: 0.9rem; resize: vertical;
+}
+.comment-form button { white-space: nowrap; padding: 10px 14px; }
+
+.comment-block {
+    padding: 12px 0; border-bottom: 1px solid #f2ece4;
+}
+.comment-block.is-reply { margin-left: 30px; border-left: 2px solid var(--border-color); padding-left: 15px; }
+.comment-meta { display: flex; gap: 8px; align-items: baseline; margin-bottom: 5px; }
+.comment-body { font-size: 0.92rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.btn-reply {
+    background: transparent; color: var(--text-sub); border: none; padding: 4px 0;
+    font-size: 0.8rem; text-decoration: underline; margin-top: 4px;
+}
+.btn-reply:hover { background: transparent; color: var(--accent-hover); }
