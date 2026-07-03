@@ -1,5 +1,6 @@
-// ⚠️ 아래 URL을 본인이 배포한 Apps Script 웹앱 URL로 바꿔주세요.
-const API_URL = "https://script.google.com/macros/s/AKfycbwx85nG9guPvcQzKPyxAaIgOf3IxJHGeaxU3b8m4nARtrZyD7miRECJb9Rl-08yaLt-/exec";
+// ⚠️ apiGet / apiPost 함수는 이제 firebase-db.js 파일에서 제공합니다.
+// (기존에는 여기서 Google Apps Script에 fetch로 요청을 보냈지만,
+//  이제는 firebase-db.js가 같은 이름의 함수로 Firestore와 직접 통신합니다.)
 
 let users = [];
 let products = [];
@@ -9,24 +10,6 @@ let adminTab = 'products';
 let openCategories = null;
 let searchQuery = '';
 let saveTimeout = null;
-
-// ---------- API 헬퍼 ----------
-
-async function apiGet(action) {
-    const res = await fetch(`${API_URL}?action=${action}`);
-    if (!res.ok) throw new Error('GET 실패: ' + action);
-    return res.json();
-}
-
-async function apiPost(action, payload = {}) {
-    const res = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // CORS preflight 회피용
-        body: JSON.stringify({ action, ...payload })
-    });
-    if (!res.ok) throw new Error('POST 실패: ' + action);
-    return res.json();
-}
 
 // ---------- 초기화 ----------
 
@@ -365,21 +348,12 @@ async function confirmOrder() {
     updateFooterAndCartCount();
     showToast("저장 중...");
 
-    // [속도 개선] 예전에는 saveUser 1번 + 담은 상품 개수만큼 addOrder를 동시에 호출했습니다.
-    // 장바구니에 담은 상품이 많을수록 서버 왕복이 늘어나(N+1) 느려지던 부분을,
-    // 서버에 요청 1번으로 사용자 저장 + 주문 내역 일괄 기록까지 한 번에 처리하도록 합쳤습니다.
-    const items = products
-        .filter(p => (user.cart[p.id] || 0) > 0)
-        .map(p => ({ productName: p.name, qty: user.cart[p.id], price: p.price }));
-
     try {
-        await apiPost('confirmOrder', {
-            nickname: user.nickname,
-            password: user.password,
-            cart: user.cart,
-            confirmed: true,
-            items
-        });
+        await apiPost('saveUser', user);
+        const items = products.filter(p => (user.cart[p.id] || 0) > 0);
+        await Promise.all(items.map(p => apiPost('addOrder', {
+            nickname: user.nickname, productName: p.name, qty: user.cart[p.id], price: p.price
+        })));
         showToast("장바구니 내역이 성공적으로 저장(확정) 되었습니다.");
     } catch (err) {
         showToast("저장에 실패했습니다. 네트워크를 확인해주세요.");
@@ -393,7 +367,7 @@ function renderAdmin() {
     const app = document.getElementById('app');
     let html = `
         <div class="header">
-            <h2>관리자 마스터 패널</h2>
+            <h2>관리자</h2>
             <div style="display:flex; gap:8px;">
                 <button onclick="openBoard('admin')" style="padding: 6px 12px; font-size: 0.85rem; background:transparent; color:var(--text-sub); border: 1px solid var(--border-color);">💡 건의게시판</button>
                 <button onclick="logout()" style="padding: 6px 12px; font-size: 0.85rem;">종료</button>
@@ -681,10 +655,8 @@ function handleCSVUpload(event) {
 
         showToast(`${parsedProducts.length}개 상품 업로드 중...`);
         try {
-            // [속도 개선] 예전에는 저장 후 상품 목록을 처음부터 다시 조회했습니다.
-            // 이제는 서버가 새로 생성된 상품(id 포함)을 바로 응답해주므로 재조회가 필요 없습니다.
-            const res = await apiPost('addProductsBulk', { products: parsedProducts });
-            products.push(...(res.products || []));
+            await apiPost('addProductsBulk', { products: parsedProducts });
+            products = await apiGet('getProducts'); // 서버 기준으로 다시 동기화
             renderAdmin();
             showToast(`${parsedProducts.length}개의 상품이 성공적으로 일괄 등록되었습니다.`);
         } catch (err) {
