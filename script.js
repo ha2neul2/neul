@@ -1,5 +1,5 @@
 // ⚠️ 아래 URL을 본인이 배포한 Apps Script 웹앱 URL로 바꿔주세요.
-const API_URL = "https://script.google.com/macros/s/AKfycbwx85nG9guPvcQzKPyxAaIgOf3IxJHGeaxU3b8m4nARtrZyD7miRECJb9Rl-08yaLt-/exec";
+const API_URL = "https://script.google.com/macros/library/d/1XeKOpmDwp8gFsVBqSJWgOAa3VsBKwJpnG1tKs3fa9TbhOVzFRyjjV3Uz/9";
 
 let users = [];
 let products = [];
