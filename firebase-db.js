@@ -21,13 +21,21 @@ async function apiGet(action) {
 
     if (name === 'getPosts') {
         const snap = await db.collection('posts').get();
-        return snap.docs.map(d => ({ id: Number(d.id), ...d.data() }));
+        return snap.docs.map(d => ({
+            id: Number(d.id),
+            like_count: 0, dislike_count: 0, comment_count: 0,
+            ...d.data()
+        }));
     }
 
     if (name === 'getComments') {
         const postId = query.split('=')[1];
         const snap = await db.collection('comments').where('post_id', '==', Number(postId)).get();
-        return snap.docs.map(d => ({ id: Number(d.id), ...d.data() }));
+        return snap.docs.map(d => ({
+            id: Number(d.id),
+            like_count: 0, dislike_count: 0,
+            ...d.data()
+        }));
     }
 
     throw new Error('알 수 없는 액션: ' + action);
@@ -107,7 +115,10 @@ async function apiPost(action, payload = {}) {
     if (action === 'addPost') {
         const id = newId();
         const { title, body, author } = payload;
-        await db.collection('posts').doc(String(id)).set({ title, body, author, created_at: nowIso(), edited: false });
+        await db.collection('posts').doc(String(id)).set({
+            title, body, author, created_at: nowIso(), edited: false,
+            like_count: 0, dislike_count: 0, comment_count: 0
+        });
         return { id };
     }
 
@@ -144,8 +155,12 @@ async function apiPost(action, payload = {}) {
         await db.collection('comments').doc(String(id)).set({
             post_id: Number(postId),
             parent_id: parentId ? Number(parentId) : null,
-            author, body, created_at: nowIso()
+            author, body, created_at: nowIso(),
+            like_count: 0, dislike_count: 0
         });
+        await db.collection('posts').doc(String(postId)).update({
+            comment_count: firebase.firestore.FieldValue.increment(1)
+        }).catch(() => {}); // 옛날 글이라 comment_count 필드가 없어도 에러 무시
         return { success: true };
     }
 
@@ -162,6 +177,29 @@ async function apiPost(action, payload = {}) {
         repliesSnap.docs.forEach(d => batch.delete(d.ref));
         batch.delete(ref);
         await batch.commit();
+
+        const deletedCount = 1 + repliesSnap.size;
+        await db.collection('posts').doc(String(comment.post_id)).update({
+            comment_count: firebase.firestore.FieldValue.increment(-deletedCount)
+        }).catch(() => {});
+        return { success: true };
+    }
+
+    if (action === 'votePost') {
+        const { id, type } = payload;
+        const field = type === 'up' ? 'like_count' : 'dislike_count';
+        await db.collection('posts').doc(String(id)).update({
+            [field]: firebase.firestore.FieldValue.increment(1)
+        });
+        return { success: true };
+    }
+
+    if (action === 'voteComment') {
+        const { id, type } = payload;
+        const field = type === 'up' ? 'like_count' : 'dislike_count';
+        await db.collection('comments').doc(String(id)).update({
+            [field]: firebase.firestore.FieldValue.increment(1)
+        });
         return { success: true };
     }
 

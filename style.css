@@ -255,6 +255,13 @@ button:hover { background-color: var(--accent-hover); }
 }
 .btn-reply:hover { background: transparent; color: var(--accent-hover); }
 
+/* 붐업 / 붐따 버튼 */
+.btn-vote {
+    background: transparent; border: 1px solid var(--border-color); color: var(--text-main);
+    padding: 6px 14px; font-size: 0.85rem; border-radius: 20px; font-weight: 500;
+}
+.btn-vote:hover { background: #f2ece4; }
+
 /* 관리자 강조 뱃지 */
 .admin-badge {
     display: inline-flex; align-items: center; gap: 3px;

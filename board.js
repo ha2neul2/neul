@@ -70,7 +70,7 @@ function renderBoardList() {
                 <li onclick="openPostDetail(${p.id})" style="cursor:pointer;">
                     <div>
                         <strong style="display:block; margin-bottom:5px;">${escapeHtml(p.title)} ${p.edited ? '<span style="color:var(--text-sub); font-size:0.8rem; font-weight:400;">(수정됨)</span>' : ''}</strong>
-                        <span style="font-size:0.85rem; color:var(--text-sub);">${renderAuthorName(p.author)} · ${formatDateTime(p.created_at)}</span>
+                        <span style="font-size:0.85rem; color:var(--text-sub);">${renderAuthorName(p.author)} · ${formatDateTime(p.created_at)} · 💬 ${p.comment_count || 0} · 👍 ${p.like_count || 0} · 👎 ${p.dislike_count || 0}</span>
                     </div>
                 </li>`;
         });
@@ -202,6 +202,10 @@ function renderPostDetail(postId) {
                     </div>
                 </div>
                 <div class="rte-view">${post.body}</div>
+                <div style="display:flex; gap:8px; margin-top:10px;">
+                    <button class="btn-vote" onclick="votePost(${post.id}, 'up')">👍 붐업 <span id="post-like-count">${post.like_count || 0}</span></button>
+                    <button class="btn-vote" onclick="votePost(${post.id}, 'down')">👎 붐따 <span id="post-dislike-count">${post.dislike_count || 0}</span></button>
+                </div>
             </div>
 
             <div class="section-header" style="margin-top:30px;">
@@ -228,7 +232,9 @@ function renderCommentBlock(c, postId, isReply) {
                 <span class="p-meta">${formatDateTime(c.created_at)}</span>
             </div>
             <div class="comment-body">${escapeHtml(c.body)}</div>
-            <div style="display:flex; gap:12px; margin-top:4px;">
+            <div style="display:flex; gap:12px; margin-top:4px; align-items:center;">
+                <button class="btn-reply" onclick="voteComment(${c.id}, 'up')">👍 <span id="c-like-${c.id}">${c.like_count || 0}</span></button>
+                <button class="btn-reply" onclick="voteComment(${c.id}, 'down')">👎 <span id="c-dislike-${c.id}">${c.dislike_count || 0}</span></button>
                 ${!isReply ? `<button class="btn-reply" onclick="toggleReplyForm(${c.id})">답글</button>` : ''}
                 ${canManageComment ? `<button class="btn-reply" style="color:var(--danger);" onclick="deleteCommentConfirm(${postId}, ${c.id})">삭제</button>` : ''}
             </div>
@@ -257,6 +263,30 @@ async function submitComment(postId, parentId, textareaId) {
     } catch (err) {
         showToast("댓글 등록에 실패했습니다.");
     }
+}
+
+function votePost(postId, type) {
+    const post = boardPosts.find(p => p.id === postId);
+    if (!post) return;
+    if (type === 'up') post.like_count = (post.like_count || 0) + 1;
+    else post.dislike_count = (post.dislike_count || 0) + 1;
+
+    const el = document.getElementById(type === 'up' ? 'post-like-count' : 'post-dislike-count');
+    if (el) el.innerText = type === 'up' ? post.like_count : post.dislike_count;
+
+    apiPost('votePost', { id: postId, type }).catch(() => showToast("반영에 실패했습니다. 새로고침 후 다시 시도해주세요."));
+}
+
+function voteComment(commentId, type) {
+    const comment = boardComments.find(c => c.id === commentId);
+    if (!comment) return;
+    if (type === 'up') comment.like_count = (comment.like_count || 0) + 1;
+    else comment.dislike_count = (comment.dislike_count || 0) + 1;
+
+    const el = document.getElementById(type === 'up' ? `c-like-${commentId}` : `c-dislike-${commentId}`);
+    if (el) el.innerText = type === 'up' ? comment.like_count : comment.dislike_count;
+
+    apiPost('voteComment', { id: commentId, type }).catch(() => showToast("반영에 실패했습니다. 새로고침 후 다시 시도해주세요."));
 }
 
 async function deletePostConfirm(postId) {
